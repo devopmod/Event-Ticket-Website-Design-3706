@@ -1,0 +1,46 @@
+{
+  "nav": {
+    "home": "Home",
+    "concerts": "Concerts",
+    "admin": "Admin"
+  },
+  "home": {
+    "title": "Live the Experience",
+    "subtitle": "Discover amazing events, concerts, and bus tours across Europe",
+    "search": "Search by Artist, Event or Venue",
+    "bonus": "GET A BONUS TICKET"
+  },
+  "concerts": {
+    "title": "Concerts",
+    "subtitle": "Comfortable transportation to your favorite events across Europe",
+    "filters": "Filters",
+    "clear": "Clear All",
+    "category": "Category",
+    "artist": "Artist",
+    "genre": "Genre",
+    "dateRange": "Date Range",
+    "city": "City",
+    "priceFrom": "Price From",
+    "from": "From",
+    "to": "To",
+    "noEvents": "No events found",
+    "tryAdjusting": "Try adjusting your filters to see more results",
+    "showing": "Showing",
+    "of": "of",
+    "results": "results",
+    "bookNow": "Book Now"
+  },
+  "concert": {
+    "buyTickets": "Buy Tickets Now",
+    "back": "Back to concerts",
+    "general": "General Admission",
+    "vip": "VIP",
+    "premium": "Premium",
+    "prices": "Ticket Prices",
+    "attending": "people attending",
+    "doors": "Doors open at"
+  },
+  "common": {
+    "from": "from"
+  }
+}
