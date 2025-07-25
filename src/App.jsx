@@ -7,10 +7,8 @@ import './i18n';
 import Home from './pages/Home';
 import ConcertList from './pages/ConcertList';
 import ConcertDetail from './pages/ConcertDetail';
-import SeatSelection from './pages/SeatSelection';
 import SeatSelectionPage from './pages/SeatSelectionPage'; // New seat selection page
 import Checkout from './pages/Checkout';
-import BusToursPage from './pages/BusToursPage';
 
 // Admin Pages
 import AdminLogin from './pages/admin/AdminLogin';
@@ -41,7 +39,6 @@ const App = () => {
           
           {/* For backward compatibility */}
           <Route path="/event/:id" element={<ConcertDetail />} />
-          <Route path="/bustours" element={<BusToursPage />} />
 
           {/* Admin Routes */}
           <Route path="/admin/login" element={<AdminLogin />} />
