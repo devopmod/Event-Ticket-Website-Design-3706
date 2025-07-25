@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fanaticka - Live Events</title>
+</head>
+<body>
+  <div id="root"></div>
+  
+  <!-- Fetch Interceptor - Executes FIRST before any other JS -->
+  <script>
+    (function intercept() {
+      const orig = window.fetch;
+      window.fetch = async (...args) => {
+        const [url, opts = {}] = args;
+        if (url.includes('/event_seats') && opts.method === 'PATCH') {
+          // читаем body как строку
+          const text = typeof opts.body === 'string'
+            ? opts.body
+            : JSON.stringify(opts.body);
+          console.groupCollapsed(`🧐 PATCH body → ${text}`);
+          console.trace('call-stack');
+          console.groupEnd();
+          
+          // Дополнительная проверка на 'hold'
+          if (text.includes('"hold"')) {
+            console.error('❌ НАЙДЕНО "hold" В ТЕЛЕ ЗАПРОСА!');
+            console.error('Текст body:', text);
+            console.error('Это проблемный запрос!');
+            // Можно добавить debugger; для остановки выполнения
+            debugger;
+          }
+        }
+        return orig(...args);
+      };
+    })();
+  </script>
+  
+  <script type="module" src="/src/main.jsx"></script>
+</body>
+</html>
