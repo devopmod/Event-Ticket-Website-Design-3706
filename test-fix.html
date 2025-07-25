@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Тест исправления</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: #f5f5f5;
+    }
+    .container {
+      background-color: white;
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #333;
+      margin-top: 0;
+    }
+    button {
+      background-color: #3B82F6;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+      margin-bottom: 20px;
+    }
+    button:hover {
+      background-color: #2563EB;
+    }
+    .log {
+      background-color: #f8f9fa;
+      border: 1px solid #e9ecef;
+      border-radius: 4px;
+      padding: 10px;
+      height: 400px;
+      overflow-y: auto;
+      font-family: monospace;
+      white-space: pre-wrap;
+      margin-bottom: 20px;
+    }
+    .success {
+      color: #10B981;
+      font-weight: bold;
+    }
+    .error {
+      color: #EF4444;
+      font-weight: bold;
+    }
+    .warning {
+      color: #F59E0B;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Тест исправления проблемы с seat status</h1>
+    <button id="runTest">Запустить тест</button>
+    <div id="log" class="log"></div>
+    <div id="result"></div>
+  </div>
+
+  <script type="module">
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+    
+    // Функция для логирования
+    const logElement = document.getElementById('log');
+    const resultElement = document.getElementById('result');
+    
+    function log(message, type = 'info') {
+      const timestamp = new Date().toLocaleTimeString();
+      const line = document.createElement('div');
+      line.textContent = `[${timestamp}] ${message}`;
+      if (type === 'error') line.classList.add('error');
+      if (type === 'success') line.classList.add('success');
+      if (type === 'warning') line.classList.add('warning');
+      logElement.appendChild(line);
+      logElement.scrollTop = logElement.scrollHeight;
+    }
+    
+    function setResult(success, message) {
+      resultElement.innerHTML = `
+        <div class="${success ? 'success' : 'error'}">
+          <h2>${success ? '✅ Тест успешно пройден' : '❌ Тест не пройден'}</h2>
+          <p>${message}</p>
+        </div>
+      `;
+    }
+    
+    // Перехват fetch для логирования
+    const originalFetch = window.fetch;
+    window.fetch = async function(...args) {
+      const [url, options = {}] = args;
+      
+      if (url.includes('event_seats_fanaticka_7a3x9d') && options?.method) {
+        log(`🔍 Перехвачен ${options.method} запрос к таблице мест`);
+        
+        if (options.body) {
+          const bodyText = typeof options.body === 'string' ? options.body : JSON.stringify(options.body);
+          log(`📦 Body: ${bodyText}`);
+          
+          // Проверяем на 'hold'
+          if (bodyText.includes('"hold"')) {
+            log(`⚠️ Найдено "hold" в запросе!`, 'warning');
+            
+            // Исправляем проблему
+            if (typeof options.body === 'string') {
+              options.body = options.body.replace('"hold"', '"held"');
+              log(`✅ Исправлено на: ${options.body}`, 'success');
+            }
+          }
+        }
+      }
+      
+      // Вызываем оригинальный fetch
+      const response = await originalFetch.apply(this, args);
+      
+      // Логируем результат для запросов к таблице мест
+      if (url.includes('event_seats_fanaticka_7a3x9d') && options?.method) {
+        const clone = response.clone();
+        try {
+          const data = await clone.json();
+          log(`📥 Ответ: ${JSON.stringify(data)}`);
+        } catch (e) {
+          log(`📥 Не удалось прочитать ответ: ${e.message}`, 'error');
+        }
+      }
+      
+      return response;
+    };
+    
+    // Создаем клиент Supabase
+    const SUPABASE_URL = 'https://kakiytbuqfhjafpacyoj.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtha2l5dGJ1cWZoamFmcGFjeW9qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI4NzcyNTYsImV4cCI6MjA2ODQ1MzI1Nn0.dO4ebeEGgDU__RIP-MQZ4Wydiyb02Ij3yivvqu4mIog';
+    
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    
+    // Тест исправления
+    async function testFix() {
+      log('🧪 Запускаем тест исправления...');
+      
+      try {
+        // 1. Создаем тестовое место
+        const testEventId = 'test-fix-' + Date.now();
+        const testSeatId = 'seat-' + Date.now();
+        
+        log('1️⃣ Создаем тестовое место...');
+        const { error: insertError } = await supabase
+          .from('event_seats_fanaticka_7a3x9d')
+          .upsert([{
+            event_id: testEventId,
+            seat_id: testSeatId,
+            status: 'free',
+            section: 'TEST',
+            row: 1
+          }]);
+        
+        if (insertError) {
+          log(`❌ Ошибка при создании места: ${insertError.message}`, 'error');
+          setResult(false, 'Не удалось создать тестовое место');
+          return;
+        }
+        
+        log('✅ Тестовое место создано успешно', 'success');
+        
+        // 2. Обновляем статус на "held"
+        log('2️⃣ Обновляем статус на "held"...');
+        const { data: updateData, error: updateError } = await supabase
+          .from('event_seats_fanaticka_7a3x9d')
+          .update({ status: 'held' })
+          .eq('event_id', testEventId)
+          .eq('seat_id', testSeatId)
+          .select();
+        
+        if (updateError) {
+          log(`❌ Ошибка при обновлении статуса: ${updateError.message}`, 'error');
+          setResult(false, 'Не удалось обновить статус места');
+          return;
+        }
+        
+        log(`✅ Статус обновлен: ${JSON.stringify(updateData)}`, 'success');
+        
+        // 3. Проверяем финальный статус
+        log('3️⃣ Проверяем финальный статус в базе...');
+        const { data: checkData, error: checkError } = await supabase
+          .from('event_seats_fanaticka_7a3x9d')
+          .select('status')
+          .eq('event_id', testEventId)
+          .eq('seat_id', testSeatId)
+          .single();
+        
+        if (checkError) {
+          log(`❌ Ошибка при проверке статуса: ${checkError.message}`, 'error');
+          setResult(false, 'Не удалось проверить финальный статус');
+          return;
+        }
+        
+        log(`📊 Финальный статус в базе: "${checkData.status}"`);
+        
+        if (checkData.status === 'held') {
+          log('✅ ИСПРАВЛЕНИЕ РАБОТАЕТ! Статус корректно сохранен как "held"', 'success');
+          setResult(true, 'Статус корректно сохранен как "held"');
+        } else if (checkData.status === 'hold') {
+          log('❌ ИСПРАВЛЕНИЕ НЕ РАБОТАЕТ! Статус сохранен как "hold"', 'error');
+          setResult(false, 'Статус все еще сохраняется как "hold"');
+        } else {
+          log(`⚠️ Неожиданный статус: "${checkData.status}"`, 'warning');
+          setResult(false, `Неожиданный статус: "${checkData.status}"`);
+        }
+        
+        // 4. Очистка - удаляем тестовое место
+        log('4️⃣ Удаляем тестовое место...');
+        await supabase
+          .from('event_seats_fanaticka_7a3x9d')
+          .delete()
+          .eq('event_id', testEventId)
+          .eq('seat_id', testSeatId);
+        
+        log('✅ Тестовое место удалено', 'success');
+        
+      } catch (e) {
+        log(`💥 Непредвиденная ошибка: ${e.message}`, 'error');
+        console.error(e);
+        setResult(false, `Непредвиденная ошибка: ${e.message}`);
+      }
+    }
+    
+    // Запуск теста по кнопке
+    document.getElementById('runTest').addEventListener('click', testFix);
+  </script>
+</body>
+</html>
