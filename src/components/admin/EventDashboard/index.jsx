@@ -1,58 +1,75 @@
-import React,{useState,useEffect} from 'react';
-import {useParams} from 'react-router-dom';
-import {motion} from 'framer-motion';
+import React, { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import * as FiIcons from 'react-icons/fi';
 import SafeIcon from '../../common/SafeIcon';
 import AdminNavBar from '../AdminNavBar';
 import PricingModal from './PricingModal';
 import SeatStatusManager from './SeatStatusManager';
 import supabase from '../../../lib/supabase';
-import {fetchEventById,updateEventPriceBook,getEventStatistics,initializeRealtimeSubscription,regenerateEventSeats} from '../../../services/eventService';
+import { 
+  fetchEventById, 
+  updateEventPriceBook, 
+  getEventStatistics, 
+  initializeRealtimeSubscription,
+  regenerateEventSeats 
+} from '../../../services/eventService';
 
-const {FiEdit,FiUsers,FiDollarSign,FiMapPin,FiCalendar,FiTrendingUp,FiSettings,FiBarChart3,FiRefreshCw,FiTool}=FiIcons;
+const { 
+  FiEdit, 
+  FiUsers, 
+  FiDollarSign, 
+  FiMapPin, 
+  FiCalendar, 
+  FiTrendingUp, 
+  FiSettings, 
+  FiBarChart3, 
+  FiRefreshCw,
+  FiTool 
+} = FiIcons;
 
-const EventDashboard=()=> {
-  const {id}=useParams();
-  const [event,setEvent]=useState(null);
-  const [statistics,setStatistics]=useState(null);
-  const [loading,setLoading]=useState(true);
-  const [showPricingModal,setShowPricingModal]=useState(false);
-  const [showSeatManager,setShowSeatManager]=useState(false);
-  const [updatingPrices,setUpdatingPrices]=useState(false);
-  const [realtimeStatus,setRealtimeStatus]=useState('disconnected');
-  const [regeneratingSeats,setRegeneratingSeats]=useState(false);
+const EventDashboard = () => {
+  const { id } = useParams();
+  const [event, setEvent] = useState(null);
+  const [statistics, setStatistics] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [showPricingModal, setShowPricingModal] = useState(false);
+  const [showSeatManager, setShowSeatManager] = useState(false);
+  const [updatingPrices, setUpdatingPrices] = useState(false);
+  const [realtimeStatus, setRealtimeStatus] = useState('disconnected');
+  const [regeneratingSeats, setRegeneratingSeats] = useState(false);
 
-  useEffect(()=> {
+  useEffect(() => {
     loadEvent();
     loadStatistics();
 
     // Set up Supabase Realtime subscription
-    const cleanup=initializeRealtimeSubscription(
+    const cleanup = initializeRealtimeSubscription(
       id,
       // Price book update handler
-      (newPriceBook)=> {
-        console.log('Price book updated via Realtime:',newPriceBook);
-        setEvent(prev=> prev ? {...prev,price_book: newPriceBook} : null); // Изменено с priceBook на price_book
+      (newPriceBook) => {
+        console.log('Price book updated via Realtime:', newPriceBook);
+        setEvent(prev => prev ? { ...prev, price_book: newPriceBook } : null);
       },
       // Seat status change handler
-      (payload)=> {
-        console.log('Seat status changed via Realtime:',payload);
+      (payload) => {
+        console.log('Seat status changed via Realtime:', payload);
         // Reload statistics when seat status changes
         loadStatistics();
       }
     );
 
     // Check Realtime connection status
-    const checkRealtimeStatus=()=> {
+    const checkRealtimeStatus = () => {
       try {
         // Check if we have active channels
-        const channels=supabase.getChannels();
+        const channels = supabase.getChannels();
         if (channels && channels.length > 0) {
-          const eventChannels=channels.filter(ch=> 
+          const eventChannels = channels.filter(ch => 
             ch.topic.includes(`event-${id}`) || ch.topic.includes(`event-seats-${id}`)
           );
           if (eventChannels.length > 0) {
-            const isConnected=eventChannels.some(ch=> ch.state==='joined');
+            const isConnected = eventChannels.some(ch => ch.state === 'joined');
             setRealtimeStatus(isConnected ? 'CONNECTED' : 'CONNECTING');
           } else {
             setRealtimeStatus('DISCONNECTED');
@@ -61,68 +78,68 @@ const EventDashboard=()=> {
           setRealtimeStatus('DISCONNECTED');
         }
       } catch (error) {
-        console.error('Error checking realtime status:',error);
+        console.error('Error checking realtime status:', error);
         setRealtimeStatus('ERROR');
       }
     };
 
     // Check status initially and set up interval
-    setTimeout(checkRealtimeStatus,2000);// Give time for channels to connect
-    const statusInterval=setInterval(checkRealtimeStatus,5000);
+    setTimeout(checkRealtimeStatus, 2000); // Give time for channels to connect
+    const statusInterval = setInterval(checkRealtimeStatus, 5000);
 
-    return ()=> {
+    return () => {
       cleanup();
       clearInterval(statusInterval);
     };
-  },[id]);
+  }, [id]);
 
-  const loadEvent=async ()=> {
+  const loadEvent = async () => {
     setLoading(true);
     try {
-      const eventData=await fetchEventById(id);
+      const eventData = await fetchEventById(id);
       setEvent(eventData);
     } catch (error) {
-      console.error('Error loading event:',error);
+      console.error('Error loading event:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const loadStatistics=async ()=> {
+  const loadStatistics = async () => {
     try {
-      const stats=await getEventStatistics(id);
+      const stats = await getEventStatistics(id);
       setStatistics(stats);
     } catch (error) {
-      console.error('Error loading statistics:',error);
+      console.error('Error loading statistics:', error);
     }
   };
 
-  const handleUpdatePrices=async (newPriceBook)=> {
+  const handleUpdatePrices = async (newPriceBook) => {
     setUpdatingPrices(true);
     try {
-      const updatedEvent=await updateEventPriceBook(id,newPriceBook);
+      const updatedEvent = await updateEventPriceBook(id, newPriceBook);
       if (updatedEvent) {
         setEvent(updatedEvent);
         setShowPricingModal(false);
         console.log('Price book updated, Supabase Realtime will broadcast to other clients');
       }
     } catch (error) {
-      console.error('Error updating prices:',error);
-      throw error;// Let modal handle the error
+      console.error('Error updating prices:', error);
+      throw error; // Let modal handle the error
     } finally {
       setUpdatingPrices(false);
     }
   };
 
   // НОВАЯ функция для регенерации мест
-  const handleRegenerateSeats=async ()=> {
+  const handleRegenerateSeats = async () => {
     if (!window.confirm('Regenerate all seats for this event? This will reset all seat statuses to "free". This action cannot be undone.')) {
       return;
     }
 
     setRegeneratingSeats(true);
     try {
-      const success=await regenerateEventSeats(id);
+      const success = await regenerateEventSeats(id);
       if (success) {
         // Reload statistics to reflect new seats
         await loadStatistics();
@@ -131,14 +148,14 @@ const EventDashboard=()=> {
         alert('Failed to regenerate seats. Please check the console for errors.');
       }
     } catch (error) {
-      console.error('Error regenerating seats:',error);
+      console.error('Error regenerating seats:', error);
       alert('Failed to regenerate seats. Please try again.');
     } finally {
       setRegeneratingSeats(false);
     }
   };
 
-  const handleRefresh=()=> {
+  const handleRefresh = () => {
     loadEvent();
     loadStatistics();
   };
@@ -171,18 +188,19 @@ const EventDashboard=()=> {
     );
   }
 
-  const venue=event.venue;
-  const priceBook=event.price_book || {}; // Изменено с priceBook на price_book
-  const prices=Object.values(priceBook).filter(p=> p > 0);
-  const priceRange=prices.length > 0 
-    ? prices.length===1 
+  const venue = event.venue;
+  const priceBook = event.price_book || {};
+  const prices = Object.values(priceBook).filter(p => p > 0);
+  const priceRange = prices.length > 0 
+    ? prices.length === 1 
       ? `€${prices[0]}` 
-      : `€${Math.min(...prices)} - €${Math.max(...prices)}` 
+      : `€${Math.min(...prices)} - €${Math.max(...prices)}`
     : 'No prices set';
 
   return (
     <div className="min-h-screen bg-zinc-900 text-white">
       <AdminNavBar />
+      
       <div className="ml-0 lg:ml-64 p-6">
         <div className="max-w-7xl mx-auto">
           {/* Header */}
@@ -207,6 +225,7 @@ const EventDashboard=()=> {
                   )}
                 </div>
               </div>
+              
               <div className="flex space-x-3">
                 <button
                   onClick={handleRefresh}
@@ -215,15 +234,15 @@ const EventDashboard=()=> {
                   <SafeIcon icon={FiRefreshCw} className="w-4 h-4 mr-2" />
                   Refresh
                 </button>
-
+                
                 {/* НОВАЯ кнопка для регенерации мест */}
                 {venue && (
                   <button
                     onClick={handleRegenerateSeats}
                     disabled={regeneratingSeats}
                     className={`flex items-center px-4 py-2 rounded-lg transition-colors ${
-                      regeneratingSeats 
-                        ? 'bg-zinc-600 text-zinc-400 cursor-not-allowed' 
+                      regeneratingSeats
+                        ? 'bg-zinc-600 text-zinc-400 cursor-not-allowed'
                         : 'bg-orange-600 hover:bg-orange-700 text-white'
                     }`}
                     title="Regenerate all seats from venue layout"
@@ -232,19 +251,19 @@ const EventDashboard=()=> {
                     {regeneratingSeats ? 'Regenerating...' : 'Regenerate Seats'}
                   </button>
                 )}
-
+                
                 {venue && (
                   <button
-                    onClick={()=> setShowSeatManager(true)}
+                    onClick={() => setShowSeatManager(true)}
                     className="flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
                   >
                     <SafeIcon icon={FiSettings} className="w-4 h-4 mr-2" />
                     Manage Seats
                   </button>
                 )}
-
+                
                 <button
-                  onClick={()=> setShowPricingModal(true)}
+                  onClick={() => setShowPricingModal(true)}
                   className="flex items-center px-4 py-2 bg-primary-400 hover:bg-primary-500 text-black rounded-lg transition-colors"
                 >
                   <SafeIcon icon={FiEdit} className="w-4 h-4 mr-2" />
@@ -256,8 +275,8 @@ const EventDashboard=()=> {
             {/* Enhanced Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
               <motion.div
-                initial={{opacity: 0,y: 20}}
-                animate={{opacity: 1,y: 0}}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
                 className="bg-zinc-800 rounded-lg p-6"
               >
                 <div className="flex items-center justify-between">
@@ -277,9 +296,9 @@ const EventDashboard=()=> {
               </motion.div>
 
               <motion.div
-                initial={{opacity: 0,y: 20}}
-                animate={{opacity: 1,y: 0}}
-                transition={{delay: 0.1}}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
                 className="bg-zinc-800 rounded-lg p-6"
               >
                 <div className="flex items-center justify-between">
@@ -299,9 +318,9 @@ const EventDashboard=()=> {
               </motion.div>
 
               <motion.div
-                initial={{opacity: 0,y: 20}}
-                animate={{opacity: 1,y: 0}}
-                transition={{delay: 0.2}}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
                 className="bg-zinc-800 rounded-lg p-6"
               >
                 <div className="flex items-center justify-between">
@@ -321,9 +340,9 @@ const EventDashboard=()=> {
               </motion.div>
 
               <motion.div
-                initial={{opacity: 0,y: 20}}
-                animate={{opacity: 1,y: 0}}
-                transition={{delay: 0.3}}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
                 className="bg-zinc-800 rounded-lg p-6"
               >
                 <div className="flex items-center justify-between">
@@ -352,7 +371,7 @@ const EventDashboard=()=> {
                 <div className="flex items-center justify-between mb-6">
                   <h2 className="text-xl font-semibold">Current Pricing</h2>
                   <button
-                    onClick={()=> setShowPricingModal(true)}
+                    onClick={() => setShowPricingModal(true)}
                     className="text-primary-400 hover:text-primary-300 text-sm"
                   >
                     Edit Prices
@@ -362,8 +381,8 @@ const EventDashboard=()=> {
                 <div className="space-y-4">
                   {venue ? (
                     // Show venue categories
-                    Object.entries(venue.canvas_data?.categories || {}).map(([categoryId,category])=> {
-                      const price=priceBook[categoryId];
+                    Object.entries(venue.canvas_data?.categories || {}).map(([categoryId, category]) => {
+                      const price = priceBook[categoryId];
                       return (
                         <div
                           key={categoryId}
@@ -372,7 +391,7 @@ const EventDashboard=()=> {
                           <div className="flex items-center">
                             <div
                               className="w-6 h-6 rounded-full mr-3 border-2 border-white/20"
-                              style={{backgroundColor: category.color}}
+                              style={{ backgroundColor: category.color }}
                             />
                             <div>
                               <h4 className="text-white font-medium">{categoryId}</h4>
@@ -413,7 +432,7 @@ const EventDashboard=()=> {
               {venue && statistics && (
                 <div className="bg-zinc-800 rounded-lg p-6 mt-6">
                   <h2 className="text-xl font-semibold mb-6">Seat Status Overview</h2>
-
+                  
                   {/* Status Bars */}
                   <div className="space-y-4">
                     <div>
@@ -424,11 +443,11 @@ const EventDashboard=()=> {
                       <div className="w-full bg-zinc-700 rounded-full h-2">
                         <div
                           className="bg-green-500 h-2 rounded-full transition-all duration-300"
-                          style={{width: `${(statistics.soldSeats / statistics.totalSeats) * 100}%`}}
+                          style={{ width: `${(statistics.soldSeats / statistics.totalSeats) * 100}%` }}
                         />
                       </div>
                     </div>
-
+                    
                     <div>
                       <div className="flex justify-between text-sm mb-2">
                         <span className="text-gray-400">Held</span>
@@ -437,11 +456,11 @@ const EventDashboard=()=> {
                       <div className="w-full bg-zinc-700 rounded-full h-2">
                         <div
                           className="bg-amber-500 h-2 rounded-full transition-all duration-300"
-                          style={{width: `${(statistics.heldSeats / statistics.totalSeats) * 100}%`}}
+                          style={{ width: `${(statistics.heldSeats / statistics.totalSeats) * 100}%` }}
                         />
                       </div>
                     </div>
-
+                    
                     <div>
                       <div className="flex justify-between text-sm mb-2">
                         <span className="text-gray-400">Available</span>
@@ -450,7 +469,7 @@ const EventDashboard=()=> {
                       <div className="w-full bg-zinc-700 rounded-full h-2">
                         <div
                           className="bg-blue-500 h-2 rounded-full transition-all duration-300"
-                          style={{width: `${(statistics.freeSeats / statistics.totalSeats) * 100}%`}}
+                          style={{ width: `${(statistics.freeSeats / statistics.totalSeats) * 100}%` }}
                         />
                       </div>
                     </div>
@@ -500,12 +519,13 @@ const EventDashboard=()=> {
                 <h3 className="text-lg font-semibold mb-4">Real-time Status</h3>
                 <div className="flex items-center space-x-2">
                   <div className={`w-3 h-3 rounded-full ${
-                    realtimeStatus==='CONNECTED' ? 'bg-green-500' : 
-                    realtimeStatus==='CONNECTING' ? 'bg-yellow-500' : 'bg-red-500'
+                    realtimeStatus === 'CONNECTED' ? 'bg-green-500' :
+                    realtimeStatus === 'CONNECTING' ? 'bg-yellow-500' :
+                    'bg-red-500'
                   }`}></div>
                   <span className="text-sm text-gray-400">
-                    {realtimeStatus==='CONNECTED' ? 'Connected to Supabase Realtime' :
-                     realtimeStatus==='CONNECTING' ? 'Connecting to Supabase Realtime...' :
+                    {realtimeStatus === 'CONNECTED' ? 'Connected to Supabase Realtime' :
+                     realtimeStatus === 'CONNECTING' ? 'Connecting to Supabase Realtime...' :
                      `Disconnected (${realtimeStatus})`}
                   </span>
                 </div>
@@ -532,7 +552,7 @@ const EventDashboard=()=> {
         <PricingModal
           event={event}
           onSave={handleUpdatePrices}
-          onCancel={()=> setShowPricingModal(false)}
+          onCancel={() => setShowPricingModal(false)}
           saving={updatingPrices}
         />
       )}
@@ -542,7 +562,7 @@ const EventDashboard=()=> {
           event={event}
           venue={venue}
           statistics={statistics}
-          onClose={()=> setShowSeatManager(false)}
+          onClose={() => setShowSeatManager(false)}
           onUpdate={loadStatistics}
         />
       )}

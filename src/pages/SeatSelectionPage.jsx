@@ -29,6 +29,7 @@ const SeatSelectionPage=()=> {
     const loadSeatMap=async ()=> {
       setLoading(true);
       setError(null);
+
       try {
         console.log('Loading seat map for event:',id);
 
@@ -41,7 +42,7 @@ const SeatSelectionPage=()=> {
         setEvent(eventData);
         console.log('Event loaded:',eventData);
 
-        // If event has venue, fetch venue data
+        // If event has venue,fetch venue data
         if (eventData.venue_id) {
           const venueData=await fetchVenueById(eventData.venue_id);
           if (venueData) {
@@ -53,8 +54,9 @@ const SeatSelectionPage=()=> {
         // Clean up any expired reservations
         await cleanupExpiredReservations();
 
-        // Initialize empty seat statuses - in real app, this would come from event seats table
+        // Initialize empty seat statuses - in real app,this would come from event seats table
         setSeatStatuses({});
+
       } catch (err) {
         console.error('Error loading seat map:',err);
         setError(err.message || 'Failed to load seat map data');
@@ -73,15 +75,15 @@ const SeatSelectionPage=()=> {
     if (isSelected) {
       // Deselect seat
       if (seat.elementId) {
-        // For capacity-based seats, remove all seats from this element
-        setSelectedSeats(prev=> prev.filter(s=> s.elementId !== seat.elementId));
+        // For capacity-based seats,remove all seats from this element
+        setSelectedSeats(prev=> prev.filter(s=> s.elementId !==seat.elementId));
       } else {
         // For regular seats
-        setSelectedSeats(prev=> prev.filter(s=> s.id !== seat.id));
+        setSelectedSeats(prev=> prev.filter(s=> s.id !==seat.id));
       }
     } else {
       // Select seat (limit to 8 seats)
-      if (selectedSeats.length >= 8) {
+      if (selectedSeats.length >=8) {
         alert('You can select maximum 8 seats at once.');
         return;
       }
@@ -113,11 +115,11 @@ const SeatSelectionPage=()=> {
   // Handle removing individual seat from selection
   const handleRemoveSeat=(seatToRemove)=> {
     if (seatToRemove.elementId) {
-      // For capacity-based seats, remove all seats from this element
-      setSelectedSeats(prev=> prev.filter(s=> s.elementId !== seatToRemove.elementId));
+      // For capacity-based seats,remove all seats from this element
+      setSelectedSeats(prev=> prev.filter(s=> s.elementId !==seatToRemove.elementId));
     } else {
       // For regular seats
-      setSelectedSeats(prev=> prev.filter(s=> s.id !== seatToRemove.id));
+      setSelectedSeats(prev=> prev.filter(s=> s.id !==seatToRemove.id));
     }
   };
 
@@ -203,7 +205,7 @@ const SeatSelectionPage=()=> {
     );
   }
 
-  // If no venue is configured, show general admission interface
+  // If no venue is configured,show general admission interface
   if (!venue || !venue.canvas_data || !venue.canvas_data.elements || venue.canvas_data.elements.length===0) {
     return (
       <div className="min-h-screen bg-zinc-900 text-white">
@@ -234,6 +236,7 @@ const SeatSelectionPage=()=> {
               <p className="text-gray-300 mb-6">
                 This event has general admission seating. No specific seats are assigned.
               </p>
+
               <div className="mb-8">
                 <h3 className="text-lg font-medium mb-4">Ticket Price</h3>
                 <div className="flex justify-between items-center p-4 bg-zinc-700 rounded-lg">
@@ -243,6 +246,7 @@ const SeatSelectionPage=()=> {
                   </span>
                 </div>
               </div>
+
               <button
                 onClick={handleGeneralAdmissionCheckout}
                 className="w-full bg-primary-400 hover:bg-primary-500 text-black font-medium py-3 rounded-lg transition-colors"
@@ -291,7 +295,7 @@ const SeatSelectionPage=()=> {
                   {formatEventDate(event.date,event.event_date)}
                 </span>
                 <span className="text-gray-400 text-xs font-medium leading-4">
-                  {venue?.name ? `${venue.name}, ${event.location}` : event.location}
+                  {venue?.name ? `${venue.name},${event.location}` : event.location}
                 </span>
 
                 {/* Categories with pricing */}

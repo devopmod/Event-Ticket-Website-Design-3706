@@ -1,218 +1,214 @@
 import supabase from '../lib/supabase';
-import {initializeZonesTables,createZone} from './zoneSeatService';
+import {initializeZonesTables, createZone} from './zoneSeatService';
 
 // Table names
-const EVENTS_TABLE='events_fanaticka_7a3x9d';
-const VENUES_TABLE='venues_fanaticka_7a3x9d';
-const EVENT_SEATS_TABLE='event_seats_fanaticka_7a3x9d';
+const EVENTS_TABLE = 'events_fanaticka_7a3x9d';
+const VENUES_TABLE = 'venues_fanaticka_7a3x9d';
+const EVENT_SEATS_TABLE = 'event_seats_fanaticka_7a3x9d';
 
 // Seat status constants
-export const SEAT_STATUS={
+export const SEAT_STATUS = {
   FREE: 'free',
   HELD: 'held',
   SOLD: 'sold'
 };
 
-export const getStatusColor=(status)=> {
+export const getStatusColor = (status) => {
   switch (status) {
-    case SEAT_STATUS.FREE: return '#3B82F6';// Blue
-    case SEAT_STATUS.HELD: return '#F59E0B';// Amber
-    case SEAT_STATUS.SOLD: return '#6B7280';// Gray
-    default: return '#9CA3AF';// Default gray
+    case SEAT_STATUS.FREE: return '#3B82F6'; // Blue
+    case SEAT_STATUS.HELD: return '#F59E0B'; // Amber
+    case SEAT_STATUS.SOLD: return '#6B7280'; // Gray
+    default: return '#9CA3AF'; // Default gray
   }
 };
 
 // Fetch all events
-export const fetchEvents=async ()=> {
+export const fetchEvents = async () => {
   try {
-    const {data,error}=await supabase
+    const {data, error} = await supabase
       .from(EVENTS_TABLE)
       .select(`
         *,
-        venue:${VENUES_TABLE}(id,name,description)
+        venue:${VENUES_TABLE}(id, name, description)
       `)
-      .order('event_date',{ascending: true});
+      .order('event_date', {ascending: true});
 
     if (error) {
-      console.error('Error fetching events:',error);
+      console.error('Error fetching events:', error);
       throw error;
     }
 
     return data || [];
   } catch (error) {
-    console.error('Error in fetchEvents:',error);
+    console.error('Error in fetchEvents:', error);
     return [];
   }
 };
 
 // Fetch a single event by ID
-export const fetchEventById=async (id)=> {
+export const fetchEventById = async (id) => {
   try {
-    const {data,error}=await supabase
+    const {data, error} = await supabase
       .from(EVENTS_TABLE)
       .select(`
         *,
-        venue:${VENUES_TABLE}(id,name,description,canvas_data)
+        venue:${VENUES_TABLE}(id, name, description, canvas_data)
       `)
-      .eq('id',id)
+      .eq('id', id)
       .single();
 
     if (error) {
-      console.error('Error fetching event:',error);
+      console.error('Error fetching event:', error);
       throw error;
     }
 
     return data;
   } catch (error) {
-    console.error('Error in fetchEventById:',error);
+    console.error('Error in fetchEventById:', error);
     return null;
   }
 };
 
 // Create a new event
-export const createEvent=async (eventData)=> {
+export const createEvent = async (eventData) => {
   try {
-    // Преобразуем priceBook в price_book для базы данных
-    const dbEventData = {
-      ...eventData,
-      price_book: eventData.priceBook || eventData.price_book || {}
-    };
+    console.log('Creating event with data:', eventData);
     
-    // Удаляем priceBook из объекта, чтобы избежать конфликтов
-    delete dbEventData.priceBook;
+    // Format data for API: convert priceBook to price_book if needed
+    const formattedData = {...eventData};
+    if (formattedData.priceBook) {
+      formattedData.price_book = formattedData.priceBook;
+      delete formattedData.priceBook;
+    }
 
-    console.log('Creating event with data:', dbEventData);
-
-    const {data,error}=await supabase
+    const {data, error} = await supabase
       .from(EVENTS_TABLE)
-      .insert([dbEventData])
+      .insert([formattedData])
       .select();
 
     if (error) {
-      console.error('Error creating event:',error);
+      console.error('Error creating event:', error);
       throw error;
     }
 
     // If event has a venue, generate seats
     if (data && data[0] && data[0].venue_id) {
-      await generateInitialSeatStatuses(data[0].id,data[0].venue_id);
+      await generateInitialSeatStatuses(data[0].id, data[0].venue_id);
     }
 
     return data?.[0];
   } catch (error) {
-    console.error('Error in createEvent:',error);
+    console.error('Error in createEvent:', error);
     throw error;
   }
 };
 
 // Update an existing event
-export const updateEvent=async (id,eventData)=> {
+export const updateEvent = async (id, eventData) => {
   try {
-    // Преобразуем priceBook в price_book для базы данных
-    const dbEventData = {
-      ...eventData,
-      price_book: eventData.priceBook || eventData.price_book || {}
-    };
+    // Format data for API: convert priceBook to price_book if needed
+    const formattedData = {...eventData};
+    if (formattedData.priceBook) {
+      formattedData.price_book = formattedData.priceBook;
+      delete formattedData.priceBook;
+    }
     
-    // Удаляем priceBook из объекта, чтобы избежать конфликтов
-    delete dbEventData.priceBook;
-
-    const {data,error}=await supabase
+    const {data, error} = await supabase
       .from(EVENTS_TABLE)
-      .update(dbEventData)
-      .eq('id',id)
+      .update(formattedData)
+      .eq('id', id)
       .select();
 
     if (error) {
-      console.error('Error updating event:',error);
+      console.error('Error updating event:', error);
       throw error;
     }
 
     return data?.[0];
   } catch (error) {
-    console.error('Error in updateEvent:',error);
+    console.error('Error in updateEvent:', error);
     throw error;
   }
 };
 
 // Delete an event
-export const deleteEvent=async (id)=> {
+export const deleteEvent = async (id) => {
   try {
-    const {error}=await supabase
+    const {error} = await supabase
       .from(EVENTS_TABLE)
       .delete()
-      .eq('id',id);
+      .eq('id', id);
 
     if (error) {
-      console.error('Error deleting event:',error);
+      console.error('Error deleting event:', error);
       throw error;
     }
 
     return true;
   } catch (error) {
-    console.error('Error in deleteEvent:',error);
+    console.error('Error in deleteEvent:', error);
     return false;
   }
 };
 
 // Update event price book
-export const updateEventPriceBook=async (id,priceBook)=> {
+export const updateEventPriceBook = async (id, priceBook) => {
   try {
-    const {data,error}=await supabase
+    const {data, error} = await supabase
       .from(EVENTS_TABLE)
       .update({price_book: priceBook})
-      .eq('id',id)
+      .eq('id', id)
       .select();
 
     if (error) {
-      console.error('Error updating price book:',error);
+      console.error('Error updating price book:', error);
       throw error;
     }
 
     return data?.[0];
   } catch (error) {
-    console.error('Error in updateEventPriceBook:',error);
+    console.error('Error in updateEventPriceBook:', error);
     throw error;
   }
 };
 
 // Get event statistics
-export const getEventStatistics=async (eventId)=> {
+export const getEventStatistics = async (eventId) => {
   try {
     // Get seat counts
-    const {data: seats,error: seatsError}=await supabase
+    const {data: seats, error: seatsError} = await supabase
       .from(EVENT_SEATS_TABLE)
-      .select('status,total_capacity')
-      .eq('event_id',eventId);
+      .select('status, total_capacity')
+      .eq('event_id', eventId);
 
     if (seatsError) {
-      console.error('Error fetching seats:',seatsError);
+      console.error('Error fetching seats:', seatsError);
       throw seatsError;
     }
 
     // Calculate statistics
-    const totalSeats=seats.reduce((sum,seat)=> sum + (seat.total_capacity || 1),0);
-    const soldSeats=seats.filter(seat=> seat.status==='sold').length;
-    const heldSeats=seats.filter(seat=> seat.status==='held').length;
-    const freeSeats=seats.filter(seat=> seat.status==='free').length;
+    const totalSeats = seats.reduce((sum, seat) => sum + (seat.total_capacity || 1), 0);
+    const soldSeats = seats.filter(seat => seat.status === 'sold').length;
+    const heldSeats = seats.filter(seat => seat.status === 'held').length;
+    const freeSeats = seats.filter(seat => seat.status === 'free').length;
 
     // Get event details for price calculation
-    const {data: event,error: eventError}=await supabase
+    const {data: event, error: eventError} = await supabase
       .from(EVENTS_TABLE)
       .select('price_book')
-      .eq('id',eventId)
+      .eq('id', eventId)
       .single();
 
     if (eventError) {
-      console.error('Error fetching event for statistics:',eventError);
+      console.error('Error fetching event for statistics:', eventError);
       throw eventError;
     }
 
     // Calculate estimated revenue based on price book
-    const priceBook=event?.price_book || {};
-    const prices=Object.values(priceBook).filter(p=> p > 0);
-    const averagePrice=prices.length > 0 ? prices.reduce((sum,p)=> sum + p,0) / prices.length : 0;
-    const estimatedRevenue=soldSeats * averagePrice;
+    const priceBook = event?.price_book || {};
+    const prices = Object.values(priceBook).filter(p => p > 0);
+    const averagePrice = prices.length > 0 ? prices.reduce((sum, p) => sum + p, 0) / prices.length : 0;
+    const estimatedRevenue = soldSeats * averagePrice;
 
     return {
       totalSeats,
@@ -222,51 +218,55 @@ export const getEventStatistics=async (eventId)=> {
       occupancyRate: totalSeats > 0 ? Math.round((soldSeats / totalSeats) * 100) : 0,
       averagePrice,
       estimatedRevenue,
-      todaysSales: Math.round(estimatedRevenue * 0.15),// Mock data for today's sales
+      todaysSales: Math.round(estimatedRevenue * 0.15), // Mock data for today's sales
       salesGrowth: '+12%' // Mock growth rate
     };
   } catch (error) {
-    console.error('Error in getEventStatistics:',error);
+    console.error('Error in getEventStatistics:', error);
     return null;
   }
 };
 
 // Initialize Realtime subscription for events
-export const initializeRealtimeSubscription=(eventId,onPriceBookUpdate,onSeatStatusChange)=> {
+export const initializeRealtimeSubscription = (eventId, onPriceBookUpdate, onSeatStatusChange) => {
   console.log(`Setting up Realtime subscriptions for event ${eventId}`);
 
   // Subscribe to event price_book updates
-  const eventChannel=supabase
+  const eventChannel = supabase
     .channel(`event-${eventId}`)
-    .on('postgres_changes',{
-      event: 'UPDATE',
-      schema: 'public',
-      table: EVENTS_TABLE,
-      filter: `id=eq.${eventId}`
-    },payload=> {
-      console.log('Event update received:',payload);
-      if (payload.new && payload.new.price_book) {
-        onPriceBookUpdate(payload.new.price_book);
-      }
-    })
+    .on('postgres_changes', 
+      {
+        event: 'UPDATE',
+        schema: 'public',
+        table: EVENTS_TABLE,
+        filter: `id=eq.${eventId}`
+      },
+      payload => {
+        console.log('Event update received:', payload);
+        if (payload.new && payload.new.price_book) {
+          onPriceBookUpdate(payload.new.price_book);
+        }
+      })
     .subscribe();
 
   // Subscribe to seat status changes
-  const seatsChannel=supabase
+  const seatsChannel = supabase
     .channel(`event-seats-${eventId}`)
-    .on('postgres_changes',{
-      event: '*',
-      schema: 'public',
-      table: EVENT_SEATS_TABLE,
-      filter: `event_id=eq.${eventId}`
-    },payload=> {
-      console.log('Seat status change received:',payload);
-      onSeatStatusChange(payload);
-    })
+    .on('postgres_changes', 
+      {
+        event: '*',
+        schema: 'public',
+        table: EVENT_SEATS_TABLE,
+        filter: `event_id=eq.${eventId}`
+      },
+      payload => {
+        console.log('Seat status change received:', payload);
+        onSeatStatusChange(payload);
+      })
     .subscribe();
 
   // Return cleanup function
-  return ()=> {
+  return () => {
     console.log('Cleaning up Realtime subscriptions');
     supabase.removeChannel(eventChannel);
     supabase.removeChannel(seatsChannel);
@@ -274,35 +274,33 @@ export const initializeRealtimeSubscription=(eventId,onPriceBookUpdate,onSeatSta
 };
 
 // Generate initial seat statuses
-export const generateInitialSeatStatuses=async (eventId,venueId)=> {
+export const generateInitialSeatStatuses = async (eventId, venueId) => {
   try {
     // First initialize zones tables if needed
     await initializeZonesTables();
 
     // Get venue data...
-    const {data: venue,error: venueError}=await supabase
+    const {data: venue, error: venueError} = await supabase
       .from(VENUES_TABLE)
       .select('canvas_data')
-      .eq('id',venueId)
+      .eq('id', venueId)
       .single();
 
     if (venueError) throw venueError;
 
     // Parse elements
-    let elements=[];
+    let elements = [];
     try {
-      const canvasData=typeof venue.canvas_data==='string' 
-        ? JSON.parse(venue.canvas_data) 
-        : venue.canvas_data;
-      elements=canvasData?.elements || [];
+      const canvasData = typeof venue.canvas_data === 'string' ? JSON.parse(venue.canvas_data) : venue.canvas_data;
+      elements = canvasData?.elements || [];
     } catch (e) {
-      console.error('Error parsing canvas_data:',e);
+      console.error('Error parsing canvas_data:', e);
       return false;
     }
 
     // Process elements
     for (const element of elements) {
-      if (element.type==='seat') {
+      if (element.type === 'seat') {
         // Handle individual seats
         await supabase
           .from(EVENT_SEATS_TABLE)
@@ -317,24 +315,22 @@ export const generateInitialSeatStatuses=async (eventId,venueId)=> {
             total_capacity: 1,
             available_capacity: 1
           }]);
-      } else if (element.type==='section' || element.type==='polygon') {
+      } else if (element.type === 'section' || element.type === 'polygon') {
         // For sections and polygons with capacity > 1, create a zone
-        const capacity=element.capacity || 1;
+        const capacity = element.capacity || 1;
         if (capacity > 1) {
           console.log(`Creating zone for ${element.type} with capacity ${capacity}`);
-          await createZone(eventId,{
+          await createZone(eventId, {
             name: element.label || `${element.type}-${element.id}`,
             capacity: capacity,
             uiShape: {
               type: element.type,
-              coordinates: element.type==='polygon' 
-                ? element.points 
-                : {
-                    x: element.x,
-                    y: element.y,
-                    width: element.width,
-                    height: element.height
-                  },
+              coordinates: element.type === 'polygon' ? element.points : {
+                x: element.x,
+                y: element.y,
+                width: element.width,
+                height: element.height
+              },
               categoryId: element.categoryId
             }
           });
@@ -359,100 +355,100 @@ export const generateInitialSeatStatuses=async (eventId,venueId)=> {
 
     return true;
   } catch (error) {
-    console.error('Error generating seat statuses:',error);
+    console.error('Error generating seat statuses:', error);
     return false;
   }
 };
 
 // Get event seat statuses
-export const getEventSeatStatuses=async (eventId)=> {
+export const getEventSeatStatuses = async (eventId) => {
   try {
-    const {data,error}=await supabase
+    const {data, error} = await supabase
       .from(EVENT_SEATS_TABLE)
       .select('*')
-      .eq('event_id',eventId);
+      .eq('event_id', eventId);
 
     if (error) {
-      console.error('Error fetching seat statuses:',error);
+      console.error('Error fetching seat statuses:', error);
       throw error;
     }
 
     return data || [];
   } catch (error) {
-    console.error('Error in getEventSeatStatuses:',error);
+    console.error('Error in getEventSeatStatuses:', error);
     return [];
   }
 };
 
 // Update a single seat status
-export const updateSeatStatus=async (eventId,seatId,status)=> {
+export const updateSeatStatus = async (eventId, seatId, status) => {
   try {
-    const {data,error}=await supabase
+    const {data, error} = await supabase
       .from(EVENT_SEATS_TABLE)
       .update({status})
-      .eq('event_id',eventId)
-      .eq('seat_id',seatId)
+      .eq('event_id', eventId)
+      .eq('seat_id', seatId)
       .select();
 
     if (error) {
-      console.error('Error updating seat status:',error);
+      console.error('Error updating seat status:', error);
       throw error;
     }
 
     return data?.[0];
   } catch (error) {
-    console.error('Error in updateSeatStatus:',error);
+    console.error('Error in updateSeatStatus:', error);
     throw error;
   }
 };
 
 // Bulk update seat statuses
-export const bulkUpdateSeatStatuses=async (eventId,updates)=> {
+export const bulkUpdateSeatStatuses = async (eventId, updates) => {
   try {
     // We'll use a transaction for this in a real implementation
     // For now, we'll just do individual updates
     for (const update of updates) {
-      await updateSeatStatus(eventId,update.seatId,update.status);
+      await updateSeatStatus(eventId, update.seatId, update.status);
     }
     return true;
   } catch (error) {
-    console.error('Error in bulkUpdateSeatStatuses:',error);
+    console.error('Error in bulkUpdateSeatStatuses:', error);
     throw error;
   }
 };
 
 // Test database connection
-export const testDatabaseConnection=async ()=> {
+export const testDatabaseConnection = async () => {
   try {
-    const {data,error}=await supabase.from(EVENTS_TABLE).select('id').limit(1);
+    const {data, error} = await supabase.from(EVENTS_TABLE).select('id').limit(1);
     if (error) {
-      console.error('Database connection test failed:',error);
+      console.error('Database connection test failed:', error);
       return false;
     }
     return true;
   } catch (error) {
-    console.error('Database connection test error:',error);
+    console.error('Database connection test error:', error);
     return false;
   }
 };
 
 // Regenerate seats for events using a specific venue
-export const regenerateSeatsForVenue=async (venueId)=> {
+export const regenerateSeatsForVenue = async (venueId) => {
   try {
     // Get all events that use this venue
-    const {data: events,error: eventsError}=await supabase
+    const {data: events, error: eventsError} = await supabase
       .from(EVENTS_TABLE)
       .select('id')
-      .eq('venue_id',venueId);
+      .eq('venue_id', venueId);
 
     if (eventsError) {
-      console.error('Error fetching events for venue:',eventsError);
+      console.error('Error fetching events for venue:', eventsError);
       return false;
     }
 
-    if (!events || events.length===0) {
+    if (!events || events.length === 0) {
       console.log('No events found for this venue');
-      return true;// No events to regenerate
+      return true; // No events to regenerate
     }
 
     // For each event, regenerate seats
@@ -462,23 +458,23 @@ export const regenerateSeatsForVenue=async (venueId)=> {
 
     return true;
   } catch (error) {
-    console.error('Error regenerating seats for venue:',error);
+    console.error('Error regenerating seats for venue:', error);
     return false;
   }
 };
 
 // Regenerate seats for a specific event
-export const regenerateEventSeats=async (eventId)=> {
+export const regenerateEventSeats = async (eventId) => {
   try {
     // First, get the event to find its venue
-    const {data: event,error: eventError}=await supabase
+    const {data: event, error: eventError} = await supabase
       .from(EVENTS_TABLE)
       .select('venue_id')
-      .eq('id',eventId)
+      .eq('id', eventId)
       .single();
 
     if (eventError) {
-      console.error('Error fetching event:',eventError);
+      console.error('Error fetching event:', eventError);
       return false;
     }
 
@@ -488,21 +484,21 @@ export const regenerateEventSeats=async (eventId)=> {
     }
 
     // Delete existing seats
-    const {error: deleteError}=await supabase
+    const {error: deleteError} = await supabase
       .from(EVENT_SEATS_TABLE)
       .delete()
-      .eq('event_id',eventId);
+      .eq('event_id', eventId);
 
     if (deleteError) {
-      console.error('Error deleting existing seats:',deleteError);
+      console.error('Error deleting existing seats:', deleteError);
       return false;
     }
 
     // Generate new seats
-    const success=await generateInitialSeatStatuses(eventId,event.venue_id);
+    const success = await generateInitialSeatStatuses(eventId, event.venue_id);
     return success;
   } catch (error) {
-    console.error('Error regenerating event seats:',error);
+    console.error('Error regenerating event seats:', error);
     return false;
   }
 };

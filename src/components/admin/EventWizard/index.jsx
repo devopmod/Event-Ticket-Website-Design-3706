@@ -1,5 +1,5 @@
-import React,{useState,useEffect} from 'react';
-import {motion,AnimatePresence} from 'framer-motion';
+import React, {useState, useEffect} from 'react';
+import {motion, AnimatePresence} from 'framer-motion';
 import {useNavigate} from 'react-router-dom';
 import * as FiIcons from 'react-icons/fi';
 import SafeIcon from '../../common/SafeIcon';
@@ -7,12 +7,12 @@ import EventBasicInfo from './EventBasicInfo';
 import EventVenueSelection from './EventVenueSelection';
 import EventPricing from './EventPricing';
 
-const {FiCheck,FiArrowRight,FiArrowLeft,FiAlertCircle}=FiIcons;
+const {FiCheck, FiArrowRight, FiArrowLeft, FiAlertCircle} = FiIcons;
 
-const EventWizard=({onSave,onCancel,saving=false,eventToEdit=null})=> {
-  const navigate=useNavigate();
-  const [currentStep,setCurrentStep]=useState(1);
-  const [eventData,setEventData]=useState({
+const EventWizard = ({onSave, onCancel, saving = false, eventToEdit = null}) => {
+  const navigate = useNavigate();
+  const [currentStep, setCurrentStep] = useState(1);
+  const [eventData, setEventData] = useState({
     title: '',
     description: '',
     category: 'concert',
@@ -23,28 +23,28 @@ const EventWizard=({onSave,onCancel,saving=false,eventToEdit=null})=> {
     genre: '',
     image: '',
     venue_id: null,
-    price_book: {} // Изменено с priceBook на price_book
+    priceBook: {}
   });
-  const [selectedVenue,setSelectedVenue]=useState(null);
-  const [errors,setErrors]=useState({});
-  const [serverError,setServerError]=useState('');
+  const [selectedVenue, setSelectedVenue] = useState(null);
+  const [errors, setErrors] = useState({});
+  const [serverError, setServerError] = useState('');
 
   // If editing an existing event, initialize form with event data
-  useEffect(()=> {
+  useEffect(() => {
     if (eventToEdit) {
-      const eventDate=eventToEdit.event_date ? new Date(eventToEdit.event_date) : new Date();
+      const eventDate = eventToEdit.event_date ? new Date(eventToEdit.event_date) : new Date();
       setEventData({
         title: eventToEdit.title || '',
         description: eventToEdit.description || '',
         category: eventToEdit.category || 'concert',
         date: eventDate.toISOString().split('T')[0],
-        time: eventDate.toTimeString().slice(0,5),
+        time: eventDate.toTimeString().slice(0, 5),
         location: eventToEdit.location || '',
         artist: eventToEdit.artist || '',
         genre: eventToEdit.genre || '',
         image: eventToEdit.image || '',
         venue_id: eventToEdit.venue_id || null,
-        price_book: eventToEdit.price_book || {} // Изменено с priceBook на price_book
+        priceBook: eventToEdit.price_book || {}
       });
 
       // If venue exists, need to fetch it to set selectedVenue
@@ -52,153 +52,149 @@ const EventWizard=({onSave,onCancel,saving=false,eventToEdit=null})=> {
         setSelectedVenue(eventToEdit.venue);
       }
     }
-  },[eventToEdit]);
+  }, [eventToEdit]);
 
-  const steps=[
-    {number: 1,title: 'Basic Info',component: 'basic'},
-    {number: 2,title: 'Venue',component: 'venue'},
-    {number: 3,title: 'Pricing',component: 'pricing'},
-    {number: 4,title: 'Review',component: 'review'}
+  const steps = [
+    {number: 1, title: 'Basic Info', component: 'basic'},
+    {number: 2, title: 'Venue', component: 'venue'},
+    {number: 3, title: 'Pricing', component: 'pricing'},
+    {number: 4, title: 'Review', component: 'review'}
   ];
 
-  const validateStep=(step)=> {
-    const newErrors={};
+  const validateStep = (step) => {
+    const newErrors = {};
 
     switch (step) {
       case 1:
-        if (!eventData.title.trim()) newErrors.title='Title is required';
-        if (!eventData.description.trim()) newErrors.description='Description is required';
-        if (!eventData.date) newErrors.date='Date is required';
-        if (!eventData.location.trim()) newErrors.location='Location is required';
+        if (!eventData.title.trim()) newErrors.title = 'Title is required';
+        if (!eventData.description.trim()) newErrors.description = 'Description is required';
+        if (!eventData.date) newErrors.date = 'Date is required';
+        if (!eventData.location.trim()) newErrors.location = 'Location is required';
         break;
-
       case 2:
         // Venue selection is optional
         break;
-
       case 3:
         if (selectedVenue) {
           // Get venue categories from canvas_data
-          const venueCategories=Object.keys(selectedVenue.canvas_data?.categories || {});
+          const venueCategories = Object.keys(selectedVenue.canvas_data?.categories || {});
+          
           // Check that all venue categories have prices > 0
           for (const categoryId of venueCategories) {
-            if (!eventData.price_book[categoryId] || eventData.price_book[categoryId] <= 0) {
-              newErrors[`price_${categoryId}`]=`Price for ${categoryId} is required and must be > 0`;
+            if (!eventData.priceBook[categoryId] || eventData.priceBook[categoryId] <= 0) {
+              newErrors[`price_${categoryId}`] = `Price for ${categoryId} is required and must be > 0`;
             }
           }
         } else {
           // General admission
-          if (!eventData.price_book.GENERAL || eventData.price_book.GENERAL <= 0) {
-            newErrors.price_GENERAL='General admission price is required and must be > 0';
+          if (!eventData.priceBook.GENERAL || eventData.priceBook.GENERAL <= 0) {
+            newErrors.price_GENERAL = 'General admission price is required and must be > 0';
           }
         }
         break;
-
       case 4:
         // Final validation - same as step 3
         if (selectedVenue) {
-          const venueCategories=Object.keys(selectedVenue.canvas_data?.categories || {});
+          const venueCategories = Object.keys(selectedVenue.canvas_data?.categories || {});
           for (const categoryId of venueCategories) {
-            if (!eventData.price_book[categoryId] || eventData.price_book[categoryId] <= 0) {
-              newErrors[`price_${categoryId}`]=`Price for ${categoryId} is required`;
+            if (!eventData.priceBook[categoryId] || eventData.priceBook[categoryId] <= 0) {
+              newErrors[`price_${categoryId}`] = `Price for ${categoryId} is required`;
             }
           }
         } else {
-          if (!eventData.price_book.GENERAL || eventData.price_book.GENERAL <= 0) {
-            newErrors.price_GENERAL='General admission price is required';
+          if (!eventData.priceBook.GENERAL || eventData.priceBook.GENERAL <= 0) {
+            newErrors.price_GENERAL = 'General admission price is required';
           }
         }
         break;
     }
 
     setErrors(newErrors);
-    return Object.keys(newErrors).length===0;
+    return Object.keys(newErrors).length === 0;
   };
 
-  const handleNext=()=> {
+  const handleNext = () => {
     if (validateStep(currentStep)) {
-      setCurrentStep(prev=> Math.min(prev + 1,steps.length));
+      setCurrentStep(prev => Math.min(prev + 1, steps.length));
       setServerError('');
     }
   };
 
-  const handlePrev=()=> {
-    setCurrentStep(prev=> Math.max(prev - 1,1));
+  const handlePrev = () => {
+    setCurrentStep(prev => Math.max(prev - 1, 1));
     setServerError('');
   };
 
-  const handleDataChange=(newData)=> {
-    setEventData(prev=> ({...prev,...newData}));
+  const handleDataChange = (newData) => {
+    setEventData(prev => ({...prev, ...newData}));
     setErrors({});
     setServerError('');
   };
 
-  const handleVenueSelect=(venue)=> {
+  const handleVenueSelect = (venue) => {
     setSelectedVenue(venue);
-    setEventData(prev=> ({
+    setEventData(prev => ({
       ...prev,
       venue_id: venue?.id || null,
-      price_book: venue ? generateDefaultPriceBook(venue.canvas_data?.categories) : {GENERAL: 45} // Изменено с priceBook на price_book
+      priceBook: venue ? generateDefaultPriceBook(venue.canvas_data?.categories) : {GENERAL: 45}
     }));
   };
 
-  const generateDefaultPriceBook=(categories)=> {
-    const priceBook={};
-    Object.keys(categories || {}).forEach(categoryId=> {
+  const generateDefaultPriceBook = (categories) => {
+    const priceBook = {};
+    Object.keys(categories || {}).forEach(categoryId => {
       // Set default prices based on category name
       if (categoryId.includes('VIP')) {
-        priceBook[categoryId]=85;
+        priceBook[categoryId] = 85;
       } else if (categoryId.includes('PREMIUM')) {
-        priceBook[categoryId]=120;
+        priceBook[categoryId] = 120;
       } else if (categoryId.includes('BALC')) {
-        priceBook[categoryId]=65;
+        priceBook[categoryId] = 65;
       } else {
-        priceBook[categoryId]=45;
+        priceBook[categoryId] = 45;
       }
     });
     return priceBook;
   };
 
-  const handleFinish=async ()=> {
+  const handleFinish = async () => {
     if (!validateStep(4)) {
       return;
     }
 
     try {
       setServerError('');
-
       // Prepare final event data
-      const finalEventData={
+      const finalEventData = {
         ...eventData,
         event_date: new Date(`${eventData.date}T${eventData.time}`).toISOString(),
-        date: new Date(`${eventData.date}T${eventData.time}`).toLocaleDateString('en-US',{
+        date: new Date(`${eventData.date}T${eventData.time}`).toLocaleDateString('en-US', {
           day: '2-digit',
           month: 'long',
           year: 'numeric'
         }),
-        // Используем price_book напрямую - поле уже правильно названо
-        priceBook: eventData.price_book // Добавляем для обратной совместимости с функциями
+        // Use price_book directly for API
+        price_book: eventData.priceBook
       };
-
-      console.log('Final event data:',finalEventData);
-
-      const result=await onSave(finalEventData);
+      
+      console.log('Final event data:', finalEventData);
+      const result = await onSave(finalEventData);
       if (result && result.id) {
         // Navigate to event dashboard on success
         navigate(`/admin/events/${result.id}/dashboard`);
       }
     } catch (error) {
-      console.error('Error creating event:',error);
-      if (error.status===422 && error.details) {
+      console.error('Error creating event:', error);
+      if (error.status === 422 && error.details) {
         // Validation errors from server
-        setServerError(error.details.join(', '));
+        setServerError(error.details.join(','));
       } else {
         setServerError(error.message || 'Failed to create event. Please try again.');
       }
     }
   };
 
-  const renderStepContent=()=> {
+  const renderStepContent = () => {
     switch (currentStep) {
       case 1:
         return (
@@ -219,8 +215,8 @@ const EventWizard=({onSave,onCancel,saving=false,eventToEdit=null})=> {
         return (
           <EventPricing
             venue={selectedVenue}
-            priceBook={eventData.price_book} // Изменено с priceBook на price_book
-            onChange={(priceBook)=> handleDataChange({price_book: priceBook})} // Изменено с priceBook на price_book
+            priceBook={eventData.priceBook}
+            onChange={(priceBook) => handleDataChange({priceBook})}
             errors={errors}
           />
         );
@@ -237,20 +233,20 @@ const EventWizard=({onSave,onCancel,saving=false,eventToEdit=null})=> {
     }
   };
 
-  const canProceed=()=> {
+  const canProceed = () => {
     switch (currentStep) {
       case 1:
         return eventData.title.trim() && eventData.description.trim() && eventData.date && eventData.location.trim();
       case 2:
-        return true;// Venue selection is optional
+        return true; // Venue selection is optional
       case 3:
         if (selectedVenue) {
-          const venueCategories=Object.keys(selectedVenue.canvas_data?.categories || {});
-          return venueCategories.every(categoryId=> 
-            eventData.price_book[categoryId] && eventData.price_book[categoryId] > 0
+          const venueCategories = Object.keys(selectedVenue.canvas_data?.categories || {});
+          return venueCategories.every(categoryId => 
+            eventData.priceBook[categoryId] && eventData.priceBook[categoryId] > 0
           );
         } else {
-          return eventData.price_book.GENERAL && eventData.price_book.GENERAL > 0;
+          return eventData.priceBook.GENERAL && eventData.priceBook.GENERAL > 0;
         }
       case 4:
         return true;
@@ -262,8 +258,8 @@ const EventWizard=({onSave,onCancel,saving=false,eventToEdit=null})=> {
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
       <motion.div
-        initial={{opacity: 0,scale: 0.9}}
-        animate={{opacity: 1,scale: 1}}
+        initial={{opacity: 0, scale: 0.9}}
+        animate={{opacity: 1, scale: 1}}
         className="bg-zinc-800 rounded-lg w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col"
       >
         {/* Header with Steps */}
@@ -271,16 +267,13 @@ const EventWizard=({onSave,onCancel,saving=false,eventToEdit=null})=> {
           <h2 className="text-2xl font-bold text-white mb-4">
             {eventToEdit ? 'Edit Event' : 'Create New Event'}
           </h2>
-
           {/* Step Indicator */}
           <div className="flex items-center space-x-4">
-            {steps.map((step)=> (
+            {steps.map((step) => (
               <div key={step.number} className="flex items-center">
                 <div
                   className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                    currentStep >= step.number
-                      ? 'bg-primary-400 text-black'
-                      : 'bg-zinc-700 text-gray-400'
+                    currentStep >= step.number ? 'bg-primary-400 text-black' : 'bg-zinc-700 text-gray-400'
                   }`}
                 >
                   {currentStep > step.number ? (
@@ -319,9 +312,9 @@ const EventWizard=({onSave,onCancel,saving=false,eventToEdit=null})=> {
           <AnimatePresence mode="wait">
             <motion.div
               key={currentStep}
-              initial={{opacity: 0,x: 20}}
-              animate={{opacity: 1,x: 0}}
-              exit={{opacity: 0,x: -20}}
+              initial={{opacity: 0, x: 20}}
+              animate={{opacity: 1, x: 0}}
+              exit={{opacity: 0, x: -20}}
               transition={{duration: 0.2}}
             >
               {renderStepContent()}
@@ -337,7 +330,6 @@ const EventWizard=({onSave,onCancel,saving=false,eventToEdit=null})=> {
           >
             Cancel
           </button>
-
           <div className="flex space-x-3">
             {currentStep > 1 && (
               <button
@@ -348,7 +340,6 @@ const EventWizard=({onSave,onCancel,saving=false,eventToEdit=null})=> {
                 Previous
               </button>
             )}
-
             {currentStep < steps.length ? (
               <button
                 onClick={handleNext}
@@ -384,10 +375,10 @@ const EventWizard=({onSave,onCancel,saving=false,eventToEdit=null})=> {
 };
 
 // Event Review Component
-const EventReview=({eventData,venue,errors})=> {
-  const formatDate=(dateStr,timeStr)=> {
-    const date=new Date(`${dateStr}T${timeStr}`);
-    return date.toLocaleDateString('en-US',{
+const EventReview = ({eventData, venue, errors}) => {
+  const formatDate = (dateStr, timeStr) => {
+    const date = new Date(`${dateStr}T${timeStr}`);
+    return date.toLocaleDateString('en-US', {
       weekday: 'long',
       year: 'numeric',
       month: 'long',
@@ -397,14 +388,14 @@ const EventReview=({eventData,venue,errors})=> {
     });
   };
 
-  const getTotalCategories=()=> {
+  const getTotalCategories = () => {
     return venue ? Object.keys(venue.canvas_data?.categories || {}).length : 1;
   };
 
-  const getPriceRange=()=> {
-    const prices=Object.values(eventData.price_book).filter(p=> p > 0); // Изменено с priceBook на price_book
-    if (prices.length===0) return '€0';
-    if (prices.length===1) return `€${prices[0]}`;
+  const getPriceRange = () => {
+    const prices = Object.values(eventData.priceBook).filter(p => p > 0);
+    if (prices.length === 0) return '€0';
+    if (prices.length === 1) return `€${prices[0]}`;
     return `€${Math.min(...prices)} - €${Math.max(...prices)}`;
   };
 
@@ -434,7 +425,7 @@ const EventReview=({eventData,venue,errors})=> {
             <div>
               <span className="text-gray-400">Date & Time:</span>
               <span className="text-white font-medium ml-2">
-                {formatDate(eventData.date,eventData.time)}
+                {formatDate(eventData.date, eventData.time)}
               </span>
             </div>
             <div>
@@ -487,9 +478,9 @@ const EventReview=({eventData,venue,errors})=> {
           <h4 className="text-lg font-medium text-white mb-3">Pricing</h4>
           <div className="space-y-2">
             {venue ? (
-              Object.entries(venue.canvas_data?.categories || {}).map(([categoryId,category])=> {
-                const price=eventData.price_book[categoryId]; // Изменено с priceBook на price_book
-                const hasError=!price || price <= 0;
+              Object.entries(venue.canvas_data?.categories || {}).map(([categoryId, category]) => {
+                const price = eventData.priceBook[categoryId];
+                const hasError = !price || price <= 0;
                 return (
                   <div
                     key={categoryId}
@@ -514,7 +505,7 @@ const EventReview=({eventData,venue,errors})=> {
             ) : (
               <div className="flex items-center justify-between p-2 bg-zinc-700/50 rounded">
                 <span className="text-white font-medium">General Admission</span>
-                <span className="text-primary-400 font-medium">€{eventData.price_book.GENERAL || 0}</span>
+                <span className="text-primary-400 font-medium">€{eventData.priceBook.GENERAL || 0}</span>
               </div>
             )}
             <div className="flex justify-between pt-2 mt-2 border-t border-zinc-600">
@@ -530,7 +521,7 @@ const EventReview=({eventData,venue,errors})=> {
         <div className="bg-red-500/20 border border-red-500 text-red-200 p-4 rounded-lg">
           <h4 className="font-medium mb-2">Please fix the following issues:</h4>
           <ul className="text-sm space-y-1">
-            {Object.entries(errors).map(([field,message])=> (
+            {Object.entries(errors).map(([field, message]) => (
               <li key={field}>• {message}</li>
             ))}
           </ul>
@@ -538,7 +529,7 @@ const EventReview=({eventData,venue,errors})=> {
       )}
 
       {/* Success Indicator */}
-      {Object.keys(errors).length===0 && (
+      {Object.keys(errors).length === 0 && (
         <div className="bg-green-500/20 border border-green-500 text-green-200 p-4 rounded-lg">
           <div className="flex items-center">
             <SafeIcon icon={FiCheck} className="w-5 h-5 mr-2" />
